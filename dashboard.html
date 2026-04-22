@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Discovery Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; background: #0f0f1a; font-family: 'Segoe UI', sans-serif;
+            color: #e0e0e0; padding: 24px 20px 60px; }
+
+    /* Header */
+    .dashboard-header { text-align: center; padding: 40px 0 28px; }
+    .dashboard-header h1 {
+      font-size: 2.2rem; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 8px;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .subtitle { color: #94a3b8; font-size: 0.95rem; margin-bottom: 6px; }
+    .run-meta { color: #64748b; font-size: 0.78rem; }
+
+    /* Stats */
+    .stats-bar { display: flex; gap: 36px; justify-content: center; margin: 28px 0; flex-wrap: wrap; }
+    .stat-box { text-align: center; }
+    .stat-value { font-size: 2rem; font-weight: 700; }
+    .stat-label { font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; color: #64748b; }
+    .stat-total   { color: #a78bfa; }
+    .stat-high    { color: #f472b6; }
+    .stat-medium  { color: #34d399; }
+    .stat-speaking { color: #60a5fa; }
+
+    /* Filter bar */
+    .filter-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; align-items: center; }
+    .filter-btn {
+      padding: 8px 20px; border-radius: 8px; border: 1px solid #2d2d44;
+      background: #1e1e2e; color: #94a3b8; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600; letter-spacing: 1px; transition: all 0.2s;
+    }
+    .filter-btn.active, .filter-btn:hover {
+      background: linear-gradient(135deg, #a78bfa, #60a5fa);
+      color: #0f0f1a; border-color: transparent;
+    }
+    .sort-select {
+      padding: 8px 14px; border-radius: 8px; background: #1e1e2e;
+      border: 1px solid #2d2d44; color: #94a3b8; font-size: 0.82rem; cursor: pointer;
+    }
+
+    /* Section headers */
+    .section-header { display: flex; align-items: center; gap: 12px; margin: 32px 0 18px; }
+    .section-header h2 { font-size: 1.1rem; letter-spacing: 2px; text-transform: uppercase; }
+    .section-header.high h2   { color: #f472b6; }
+    .section-header.medium h2 { color: #34d399; }
+    .section-count {
+      background: #2d2d44; border-radius: 20px;
+      padding: 2px 10px; font-size: 0.72rem; color: #94a3b8;
+    }
+
+    /* Grid */
+    .events-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 18px; margin-bottom: 12px;
+    }
+
+    /* Card */
+    .event-card {
+      background: #1e1e2e; border: 2px solid #2d2d44; border-radius: 12px;
+      padding: 22px; transition: border-color 0.2s, transform 0.15s;
+      border-left-width: 4px;
+    }
+    .event-card:hover { border-color: #a78bfa; transform: translateY(-2px); }
+    .event-card.high   { border-left-color: #f472b6; }
+    .event-card.medium { border-left-color: #34d399; }
+
+    /* Card header */
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+    .event-name  { font-size: 1rem; font-weight: 700; flex: 1; line-height: 1.4; }
+    .priority-badge { padding: 3px 10px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; }
+    .badge-high   { background: #2d1f4a; color: #f472b6; border: 1px solid #f472b633; }
+    .badge-medium { background: #0f2d20; color: #34d399; border: 1px solid #34d39933; }
+
+    /* Score */
+    .score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .score-number {
+      font-size: 1.9rem; font-weight: 900;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; min-width: 36px;
+    }
+    .score-bar-wrap { flex: 1; height: 5px; background: #2d2d44; border-radius: 3px; }
+    .score-bar { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #a78bfa, #60a5fa); }
+    .score-denom { font-size: 0.68rem; color: #64748b; }
+
+    /* Meta */
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .meta-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 2px; }
+    .meta-value { font-size: 0.84rem; color: #94a3b8; }
+    .meta-full  { margin-bottom: 12px; }
+
+    /* Tags */
+    .tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .tag { padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+    .tag-speaking    { background: #1e2d4a; color: #60a5fa; }
+    .tag-partnership { background: #2d1e2d; color: #a78bfa; }
+
+    /* Links */
+    .card-links { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+    .card-link { color: #60a5fa; font-size: 0.8rem; text-decoration: none; border-bottom: 1px solid #60a5fa44; transition: border-color 0.2s; }
+    .card-link:hover { border-color: #60a5fa; }
+
+    /* Outreach */
+    .outreach-section { background: #0f0f1a; border-radius: 8px; padding: 14px; margin-top: 14px; }
+    .outreach-header  { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .outreach-label   { font-size: 0.68rem; letter-spacing: 1.5px; text-transform: uppercase; color: #64748b; }
+    .copy-btn {
+      padding: 5px 12px; border-radius: 6px; border: 1px solid #2d2d44;
+      background: transparent; color: #94a3b8; font-size: 0.72rem; cursor: pointer; transition: all 0.2s;
+    }
+    .copy-btn:hover  { background: #a78bfa; color: #0f0f1a; border-color: #a78bfa; }
+    .copy-btn.copied { background: #34d399; color: #0f0f1a; border-color: #34d399; }
+    .outreach-text { font-size: 0.78rem; color: #94a3b8; white-space: pre-wrap; line-height: 1.65; max-height: 180px; overflow-y: auto; font-family: inherit; }
+
+    /* Speaking topic */
+    .speaking-topic { background: #2d1f4a; border-radius: 8px; padding: 12px 14px; margin-top: 10px; }
+    .topic-label { font-size: 0.65rem; color: #a78bfa; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+    .topic-title { font-size: 0.88rem; font-weight: 700; color: #e0e0e0; line-height: 1.4; }
+
+    /* Empty */
+    .empty-state { text-align: center; padding: 60px; color: #64748b; font-size: 1rem; }
+
+    @media (max-width: 600px) {
+      .events-grid  { grid-template-columns: 1fr; }
+      .meta-grid    { grid-template-columns: 1fr; }
+      .stats-bar    { gap: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="dashboard-header">
+  <h1>Event Discovery</h1>
+  <div class="subtitle">Startup &amp; Entrepreneurship &mdash; Speaking &amp; Partnership Opportunities</div>
+  <div class="run-meta">Generated 2026-04-22 14:38 &mdash; targeting enterprise decision-makers</div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-box"><div class="stat-value stat-total"  id="stat-total">0</div><div class="stat-label">Total</div></div>
+  <div class="stat-box"><div class="stat-value stat-high"   id="stat-high">0</div><div class="stat-label">High Priority</div></div>
+  <div class="stat-box"><div class="stat-value stat-medium" id="stat-medium">0</div><div class="stat-label">Medium Priority</div></div>
+  <div class="stat-box"><div class="stat-value stat-speaking" id="stat-speaking">0</div><div class="stat-label">Speaking Opps</div></div>
+</div>
+
+<div class="filter-bar">
+  <button class="filter-btn active" data-filter="all">All</button>
+  <button class="filter-btn" data-filter="high">High Priority</button>
+  <button class="filter-btn" data-filter="medium">Medium Priority</button>
+  <button class="filter-btn" data-filter="speaking">Speaking</button>
+  <button class="filter-btn" data-filter="partnership">Partnership</button>
+  <select class="sort-select" id="sort-select">
+    <option value="score">Sort: Score</option>
+    <option value="date">Sort: Date</option>
+    <option value="name">Sort: Name</option>
+  </select>
+</div>
+
+<div id="events-container"></div>
+
+<script>
+const EVENTS = [
+  {
+    "uid": "04cd7151c53535145811b6883d757daa",
+    "name": "Event Directory",
+    "event_type": "Conference (CFP)",
+    "date_raw": "IMPORTANT: Due to ongoing support issues with PaperCall functionality, PLEASE SU",
+    "date_parsed": null,
+    "location": "",
+    "organizer": "",
+    "audience": "Sponsored by Microsoft Learn how Microsoft Azure’s cloud services can accelerate your cloud app development process: we support the tools and languages you already use, security and management services are built-in, ML/AI capabilities are quickly callable from your app, and you can retain full contr",
+    "url": "https://papercall.io/cfps",
+    "contact": "",
+    "score": 7,
+    "score_breakdown": {
+      "icp": 6.0,
+      "authority": 8.0,
+      "lead": 8.0,
+      "deadline": 3.0
+    },
+    "has_speaking": true,
+    "has_partnership": true,
+    "icp_fit": 6,
+    "authority": 8,
+    "lead_potential": 8,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Speaking Proposal — Event Directory\n\nHi there,\n\nI came across Event Directory and was excited to see you're accepting speaker submissions — this looks like exactly the right room.\n\nI work with early-stage B2B founders who are trying to crack enterprise accounts, and I've developed a framework specifically around what VP and Director-level buyers actually respond to. My proposed talk:\n\nTitle: \"Partnership-Led Growth: How Startups Build Pipeline Without a Sales Team\"\n\nCore takeaway: Case studies of startup partnerships that generated enterprise leads — from co-marketing to channel ...\n\nYour audience of Sponsored by Microsoft Learn how Microsoft Azure’s cloud services can accelerate would walk away with an immediately actionable playbook — not theory.\n\nHappy to share an abstract, past talk recordings, or a brief call. What's the best next step?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Partnership-Led Growth: How Startups Build Pipeline Without a Sales Team",
+    "speaking_topic": "Case studies of startup partnerships that generated enterprise leads — from co-marketing to channel deals — with a playbook attendees can implement immediately.",
+    "source_domain": "papercall.io",
+    "scrape_error": ""
+  },
+  {
+    "uid": "8e8b39c9444a7dc13bedd970c708370a",
+    "name": "Alberto P. Martí",
+    "event_type": "Conference (CFP)",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "",
+    "organizer": "",
+    "audience": "Alberto P. Martí VP of Innovation at OpenNebula Systems Actions Favorite Contact Alberto has developed most of his career in Spain and in the UK, both in the IT sector and in Academia. As VP of Open Source Innovation at OpenNebula Systems, he deals with strategic collaborations with public cloud/edg",
+    "url": "https://sessionize.com/events",
+    "contact": "",
+    "score": 6,
+    "score_breakdown": {
+      "icp": 6.0,
+      "authority": 8.0,
+      "lead": 5.0,
+      "deadline": 3.0
+    },
+    "has_speaking": true,
+    "has_partnership": false,
+    "icp_fit": 6,
+    "authority": 8,
+    "lead_potential": 5,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Speaking Proposal — Alberto P. Martí\n\nHi there,\n\nI came across Alberto P. Martí and was excited to see you're accepting speaker submissions — this looks like exactly the right room.\n\nI work with early-stage B2B founders who are trying to crack enterprise accounts, and I've developed a framework specifically around what VP and Director-level buyers actually respond to. My proposed talk:\n\nTitle: \"Selling to the Enterprise: A Founder's Unconventional Playbook\"\n\nCore takeaway: Hard-won lessons from building B2B enterprise relationships — how startup founders can reach VP-leve...\n\nYour audience of Alberto P. Martí VP of Innovation at OpenNebula Systems Actions Favorite Contact would walk away with an immediately actionable playbook — not theory.\n\nHappy to share an abstract, past talk recordings, or a brief call. What's the best next step?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Selling to the Enterprise: A Founder's Unconventional Playbook",
+    "speaking_topic": "Hard-won lessons from building B2B enterprise relationships — how startup founders can reach VP-level buyers, shorten sales cycles, and turn pilots into long-term contracts.",
+    "source_domain": "sessionize.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "76e26480a8ead276e9837d7ee8743636",
+    "name": "Entrepreneurship | Global Entrepreneurship Summit 2026 | August 19-20, 2026, Toronto, Canada | Global entrepreneurship S",
+    "event_type": "",
+    "date_raw": "April 25, 2026",
+    "date_parsed": "2026-04-25",
+    "location": "Virtual",
+    "organizer": "",
+    "audience": "5th International Conference on Global Entrepreneurship Summit 2026 invites Business Tycoons, Women Entrepreneurs, Enthusiastic youth, Academic Entrepreneurs, Small-scale Industrial People, Scholars, Academicians, Students and Corporate entities across the globe to join at the International Conferen",
+    "url": "https://www.scitechseries.com/entrepreneurship",
+    "contact": "mailto: enterpreneurship@scitechcolloquium.com  entrepreneurship@globalscienceevents.com",
+    "score": 4,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 5.0,
+      "lead": 3.0,
+      "deadline": 10.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 5,
+    "lead_potential": 3,
+    "deadline_proximity": 10,
+    "outreach_message": "Subject: Partnership Opportunity — Entrepreneurship | Global Entrepreneurship Summit 2026 | August 19-20, 2026, Toronto, Canada | Global entrepreneurship S\n\nHi there,\n\nI noticed Entrepreneurship | Global Entrepreneurship Summit 2026 | August 19-20, 2026, Toronto, Canada | Global entrepreneurship S is bringing together 5th International Conference on Global Entrepreneurship Summit 2026 invites Busi — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Building for the Enterprise Buyer: What VPs Actually Want from Startups",
+    "speaking_topic": "Practical guide for startup founders navigating enterprise sales — how to speak the language of VPs and Directors, run pilots that convert, and structure deals that scale.",
+    "source_domain": "scitechseries.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "610215a70b85e931e6937bd2bb03e5a5",
+    "name": "ISACA 2026 North America Conference",
+    "event_type": "",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "Virtual",
+    "organizer": "",
+    "audience": "Connect with IS/IT thought leadership and become inspired by informative content. Join us in Las Vegas for the ISACA 2026 North American Conference.",
+    "url": "https://www.bing.com/aclick?ld=e8pI8YB4hA7eS29iqL8Kv5BjVUCUzm4kPC3wE_p2l57o7yYDoS_TLWe-n0BPwVzvCJf9XWcMXvaY9hQenY9Y9ecxkeZekKu6B5f93joC9lsHtgy187K_LlnFbHfKVkk8Pp4a8Q2AI_w2vlhzp7jqyyJiSp-O7KTfwJFbwkd2p036iT6a99eir4TgSe_bO6t06UWUNjiEr6_PVSFcgGucZkn3oLTG0&u=aHR0cHMlM2ElMmYlMmZ3d3cuaXNhY2Eub3JnJTJmdHJhaW5pbmctYW5kLWV2ZW50cyUyZmNvbmZlcmVuY2VzJTJmaXNhY2Etbm9ydGgtYW1lcmljYS1jb25mZXJlbmNlJTNmdXRtX3NvdXJjZSUzZGJpbmclMjZ1dG1fbWVkaXVtJTNkY3BjJTI2dXRtX2NhbXBhaWduJTNkaXNhY2EtY29uZi12ZWdhcyUyNnV0bV90ZXJtJTNkY29uZl9uYV9hY3FfYnJhbmRlZF9leHQlMjZtc2Nsa2lkJTNkYTUyMWFhYmM3NTQ0MTBiOTA0ZmVjMzU0ZmFjNzllYTY&rlid=a521aabc754410b904fec354fac79ea6",
+    "contact": "https://www.bing.com/about-us/contact-us",
+    "score": 4,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 4.0,
+      "lead": 8.0,
+      "deadline": 3.0
+    },
+    "has_speaking": true,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 4,
+    "lead_potential": 8,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Speaking Proposal — ISACA 2026 North America Conference\n\nHi there,\n\nI came across ISACA 2026 North America Conference and was excited to see you're accepting speaker submissions — this looks like exactly the right room.\n\nI work with early-stage B2B founders who are trying to crack enterprise accounts, and I've developed a framework specifically around what VP and Director-level buyers actually respond to. My proposed talk:\n\nTitle: \"Partnership-Led Growth: How Startups Build Pipeline Without a Sales Team\"\n\nCore takeaway: Case studies of startup partnerships that generated enterprise leads — from co-marketing to channel ...\n\nYour audience of Connect with IS/IT thought leadership and become inspired by informative content would walk away with an immediately actionable playbook — not theory.\n\nHappy to share an abstract, past talk recordings, or a brief call. What's the best next step?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Partnership-Led Growth: How Startups Build Pipeline Without a Sales Team",
+    "speaking_topic": "Case studies of startup partnerships that generated enterprise leads — from co-marketing to channel deals — with a playbook attendees can implement immediately.",
+    "source_domain": "bing.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "13de29bd87bb36884a49c2717cc55178",
+    "name": "Upcoming SaaS Events & Conferences 2026",
+    "event_type": "",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "",
+    "organizer": "",
+    "audience": "Browse upcoming SaaS events and conferences in 2026. Find B2B SaaS networking events, founder meetups, and industry conferences with dates, locations, and attendee reviews.",
+    "url": "https://founderpath.com/events/saas/upcoming",
+    "contact": "",
+    "score": 4,
+    "score_breakdown": {
+      "icp": 4.0,
+      "authority": 4.0,
+      "lead": 3.0,
+      "deadline": 3.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 4,
+    "authority": 4,
+    "lead_potential": 3,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Partnership Opportunity — Upcoming SaaS Events & Conferences 2026\n\nHi there,\n\nI noticed Upcoming SaaS Events & Conferences 2026 is bringing together Browse upcoming SaaS events and conferences in 2026. Find B2B SaaS networking ev — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "From Seed to Enterprise: How B2B Startups Win Fortune 500 Accounts",
+    "speaking_topic": "A tactical framework for founders to land enterprise customers — covering procurement cycles, stakeholder mapping, and closing multi-year contracts.",
+    "source_domain": "founderpath.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "9bc4b1b39abe6acdbb4f8a08b3570858",
+    "name": "Entrepreneurship summit 2022 set for July 14 * Kikubo Lane",
+    "event_type": "",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "",
+    "organizer": "Javiira Ssebwaami",
+    "audience": "Overview: Key among other notable speakers expected at event include Deputy Speaker of Parliament Thomas Tayebwa, Dr. Maggie Kigozi, top CEOs and other leading young entrepreneurs KAMPALA — The Chamber of young entrepreneurs Uganda has confirmed that Vice President Jessica Alupo will open the upcomi",
+    "url": "https://kikubolane.com/2022/07/07/entrepreneurship-summit-2022-set-for-july-14/",
+    "contact": "",
+    "score": 3,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 4.0,
+      "lead": 3.0,
+      "deadline": 3.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 4,
+    "lead_potential": 3,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Partnership Opportunity — Entrepreneurship summit 2022 set for July 14 * Kikubo Lane\n\nHi Javiira,\n\nI noticed Entrepreneurship summit 2022 set for July 14 * Kikubo Lane is bringing together Overview: Key among other notable speakers expected at event include Deputy Spea — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Partnership-Led Growth: How Startups Build Pipeline Without a Sales Team",
+    "speaking_topic": "Case studies of startup partnerships that generated enterprise leads — from co-marketing to channel deals — with a playbook attendees can implement immediately.",
+    "source_domain": "kikubolane.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "5c47d063b379f7214eda1be36406273c",
+    "name": "Sponsors | Global Entrepreneurship Summit 2026 | August 19-20, 2026, Toronto, Canada | Global entrepreneurship Summit 20",
+    "event_type": "",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "",
+    "organizer": "",
+    "audience": "5th International Conference on Global Entrepreneurship Summit 2026 invites Business Tycoons, Women Entrepreneurs, Enthusiastic youth, Academic Entrepreneurs, Small-scale Industrial People, Scholars, Academicians, Students and Corporate entities across the globe to join at the International Conferen",
+    "url": "https://www.scitechseries.com/entrepreneurship/information/sponsors",
+    "contact": "mailto: enterpreneurship@scitechcolloquium.com  entrepreneurship@globalscienceevents.com",
+    "score": 3,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 5.0,
+      "lead": 3.0,
+      "deadline": 3.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 5,
+    "lead_potential": 3,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Partnership Opportunity — Sponsors | Global Entrepreneurship Summit 2026 | August 19-20, 2026, Toronto, Canada | Global entrepreneurship Summit 20\n\nHi there,\n\nI noticed Sponsors | Global Entrepreneurship Summit 2026 | August 19-20, 2026, Toronto, Canada | Global entrepreneurship Summit 20 is bringing together 5th International Conference on Global Entrepreneurship Summit 2026 invites Busi — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Building for the Enterprise Buyer: What VPs Actually Want from Startups",
+    "speaking_topic": "Practical guide for startup founders navigating enterprise sales — how to speak the language of VPs and Directors, run pilots that convert, and structure deals that scale.",
+    "source_domain": "scitechseries.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "9ede8aff42f11651a9a1c6ebc58c2c0c",
+    "name": "Entrepreneur India - Startup Summit and Entrepreneur Conference",
+    "event_type": "",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "",
+    "organizer": "",
+    "audience": "Join the premier Startup Summit and Entrepreneur Conference to gain insights, network with industry leaders, and fuel your entrepreneurial journey",
+    "url": "https://www.entrepreneurindia.com/",
+    "contact": "https://www.entrepreneurindia.com/speakers.php",
+    "score": 3,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 4.0,
+      "lead": 3.0,
+      "deadline": 3.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 4,
+    "lead_potential": 3,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Partnership Opportunity — Entrepreneur India - Startup Summit and Entrepreneur Conference\n\nHi there,\n\nI noticed Entrepreneur India - Startup Summit and Entrepreneur Conference is bringing together Join the premier Startup Summit and Entrepreneur Conference to gain insights, ne — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Partnership-Led Growth: How Startups Build Pipeline Without a Sales Team",
+    "speaking_topic": "Case studies of startup partnerships that generated enterprise leads — from co-marketing to channel deals — with a playbook attendees can implement immediately.",
+    "source_domain": "entrepreneurindia.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "1942a8c82652e76d4fbcf1b1367877a4",
+    "name": "TechCrunch Founder Summit 2026",
+    "event_type": "",
+    "date_raw": "November 4, 2026",
+    "date_parsed": "2026-11-04",
+    "location": "",
+    "organizer": "",
+    "audience": "TechCrunch Founder Summit heads to Boston on November 4, 2026 to bring 1,000+ founders and VCs a full day of how-to, must-have scaling knowledge.",
+    "url": "https://techcrunch.com/events/techcrunch-founder-summit-2026/",
+    "contact": "https://techcrunch.com/contact-us/",
+    "score": 3,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 5.0,
+      "lead": 3.0,
+      "deadline": 2.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 5,
+    "lead_potential": 3,
+    "deadline_proximity": 2,
+    "outreach_message": "Subject: Partnership Opportunity — TechCrunch Founder Summit 2026\n\nHi there,\n\nI noticed TechCrunch Founder Summit 2026 is bringing together TechCrunch Founder Summit heads to Boston on November 4, 2026 to bring 1,000+ fo — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Partnership-Led Growth: How Startups Build Pipeline Without a Sales Team",
+    "speaking_topic": "Case studies of startup partnerships that generated enterprise leads — from co-marketing to channel deals — with a playbook attendees can implement immediately.",
+    "source_domain": "techcrunch.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "ad818213af25dea11b282e719d4b1441",
+    "name": "Call for Proposal - Venture Incubation Program 2026 // 28DIGITAL",
+    "event_type": "",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "Virtual",
+    "organizer": "",
+    "audience": "28DIGITAL is looking for Partners to support the development and deployment of the Venture Incubation Programme edition. The duration of project support is until the end of 2026. 28DIGITAL is seeking for entrepreneurial education providers like incubators, accelerators, university entrepreneurship c",
+    "url": "https://28digital.eu/our-messages/calls-tenders/call-for-proposal-venture-incubation-program-2026/",
+    "contact": "https://28digital.eu/contact-us/",
+    "score": 3,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 4.0,
+      "lead": 3.0,
+      "deadline": 3.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 4,
+    "lead_potential": 3,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Partnership Opportunity — Call for Proposal - Venture Incubation Program 2026 // 28DIGITAL\n\nHi there,\n\nI noticed Call for Proposal - Venture Incubation Program 2026 // 28DIGITAL is bringing together 28DIGITAL is looking for Partners to support the development and deployment of t — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Partnership-Led Growth: How Startups Build Pipeline Without a Sales Team",
+    "speaking_topic": "Case studies of startup partnerships that generated enterprise leads — from co-marketing to channel deals — with a playbook attendees can implement immediately.",
+    "source_domain": "28digital.eu",
+    "scrape_error": ""
+  },
+  {
+    "uid": "b4e24c2cea8dbeabc52daf4104f8101f",
+    "name": "Discover Startup Events & Activities in Seattle, WA",
+    "event_type": "",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "",
+    "organizer": "",
+    "audience": "",
+    "url": "https://www.eventbrite.com/d/wa--seattle/startup-events/",
+    "contact": "",
+    "score": 3,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 5.0,
+      "lead": 3.0,
+      "deadline": 3.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 5,
+    "lead_potential": 3,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Partnership Opportunity — Discover Startup Events & Activities in Seattle, WA\n\nHi there,\n\nI noticed Discover Startup Events & Activities in Seattle, WA is bringing together founders and enterprise leaders — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Partnership-Led Growth: How Startups Build Pipeline Without a Sales Team",
+    "speaking_topic": "Case studies of startup partnerships that generated enterprise leads — from co-marketing to channel deals — with a playbook attendees can implement immediately.",
+    "source_domain": "eventbrite.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "28175c542a9075874d135c4f8c0e64b7",
+    "name": "2023 Accelerate Demo Day — Global Insurance Accelerator",
+    "event_type": "",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "",
+    "organizer": "",
+    "audience": "",
+    "url": "https://www.globalinsuranceaccelerator.com/acceleratedemo",
+    "contact": "https://www.globalinsuranceaccelerator.com/contact",
+    "score": 3,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 5.0,
+      "lead": 3.0,
+      "deadline": 3.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 5,
+    "lead_potential": 3,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Partnership Opportunity — 2023 Accelerate Demo Day — Global Insurance Accelerator\n\nHi there,\n\nI noticed 2023 Accelerate Demo Day — Global Insurance Accelerator is bringing together founders and enterprise leaders — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Partnership-Led Growth: How Startups Build Pipeline Without a Sales Team",
+    "speaking_topic": "Case studies of startup partnerships that generated enterprise leads — from co-marketing to channel deals — with a playbook attendees can implement immediately.",
+    "source_domain": "globalinsuranceaccelerator.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "79270c53b59fc83c3bae1ad1289e9a9d",
+    "name": "Our Sponsors",
+    "event_type": "",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "Virtual",
+    "organizer": "",
+    "audience": "Lead Generation World Conference is the only conference that was created by industry professionals. We strive to help lead buyers and lead sellers become more successful within the lead generation industry.",
+    "url": "https://leadgenerationworld.com/our-sponsors/",
+    "contact": "",
+    "score": 3,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 4.0,
+      "lead": 3.0,
+      "deadline": 3.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 4,
+    "lead_potential": 3,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Partnership Opportunity — Our Sponsors\n\nHi there,\n\nI noticed Our Sponsors is bringing together Lead Generation World Conference is the only conference that was created by indu — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Partnership-Led Growth: How Startups Build Pipeline Without a Sales Team",
+    "speaking_topic": "Case studies of startup partnerships that generated enterprise leads — from co-marketing to channel deals — with a playbook attendees can implement immediately.",
+    "source_domain": "leadgenerationworld.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "6b4579defb06292dc23697bbf4f0aca6",
+    "name": "Leadership Ateliers Lisbon",
+    "event_type": "Event",
+    "date_raw": "2026-04-22T00:00:00-07:00",
+    "date_parsed": "2026-04-22",
+    "location": "Palacio Do Grilo",
+    "organizer": "Hatch Conference",
+    "audience": "&lt;p&gt;A two-day event for design leaders to connect design with business outcomes through workshops and networking.&lt;/p&gt;\\n",
+    "url": "https://bigevent.io/events/category/saas/",
+    "contact": "https://bigevent.io/contact/",
+    "score": 3,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 4.0,
+      "lead": 0.0,
+      "deadline": 10.0
+    },
+    "has_speaking": false,
+    "has_partnership": false,
+    "icp_fit": 1,
+    "authority": 4,
+    "lead_potential": 0,
+    "deadline_proximity": 10,
+    "outreach_message": "Subject: Connecting Around Leadership Ateliers Lisbon\n\nHi Hatch,\n\nI came across Leadership Ateliers Lisbon and was impressed by the focus on &lt;p&gt;A two-day event for design leaders to connect design with business outc. This is a space where I do a lot of work.\n\nI'd love to explore whether there's an opportunity to contribute — whether as a speaker, partner, or sponsor. I have a specific angle around enterprise sales that tends to resonate with founders and investors.\n\nWould love to connect — even a brief intro call would be a great starting point.\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "Selling to the Enterprise: A Founder's Unconventional Playbook",
+    "speaking_topic": "Hard-won lessons from building B2B enterprise relationships — how startup founders can reach VP-level buyers, shorten sales cycles, and turn pilots into long-term contracts.",
+    "source_domain": "bigevent.io",
+    "scrape_error": ""
+  },
+  {
+    "uid": "8ab7869bbd19d6730cfb554e62e14e5b",
+    "name": "Forrester's B2B Summit North America — Sponsors",
+    "event_type": "",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "Virtual",
+    "organizer": "",
+    "audience": "Join our sponsors for the premier marketing, product, and sales conference for B2B leaders. Get expert insights and analysis to shape your strategy and fuel growth.",
+    "url": "https://www.forrester.com/event/b2b-summit-north-america/sponsors/",
+    "contact": "mailto:sponsorships@forrester.com",
+    "score": 3,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 4.0,
+      "lead": 3.0,
+      "deadline": 3.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 4,
+    "lead_potential": 3,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Partnership Opportunity — Forrester's B2B Summit North America — Sponsors\n\nHi there,\n\nI noticed Forrester's B2B Summit North America — Sponsors is bringing together Join our sponsors for the premier marketing, product, and sales conference for B — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "From Seed to Enterprise: How B2B Startups Win Fortune 500 Accounts",
+    "speaking_topic": "A tactical framework for founders to land enterprise customers — covering procurement cycles, stakeholder mapping, and closing multi-year contracts.",
+    "source_domain": "forrester.com",
+    "scrape_error": ""
+  },
+  {
+    "uid": "93ca658de93e854b4f467a26d682b9de",
+    "name": "Sponsorship Opportunities",
+    "event_type": "",
+    "date_raw": "",
+    "date_parsed": null,
+    "location": "Virtual",
+    "organizer": "",
+    "audience": "B2B Connect",
+    "url": "https://b2bconnect.wbresearch.com/opportunities",
+    "contact": "https://b2bconnect.wbresearch.com/speakers",
+    "score": 3,
+    "score_breakdown": {
+      "icp": 1.0,
+      "authority": 4.0,
+      "lead": 3.0,
+      "deadline": 3.0
+    },
+    "has_speaking": false,
+    "has_partnership": true,
+    "icp_fit": 1,
+    "authority": 4,
+    "lead_potential": 3,
+    "deadline_proximity": 3,
+    "outreach_message": "Subject: Partnership Opportunity — Sponsorship Opportunities\n\nHi there,\n\nI noticed Sponsorship Opportunities is bringing together B2B Connect — a conversation I'd love to be part of as a partner.\n\nWe work at the intersection of [your value prop], and our ideal customer is exactly the enterprise decision-maker your event attracts. A partnership could take the form of a sponsored session, co-branded content, or a curated roundtable.\n\nI'd love to explore what would add genuine value for your attendees — not just a logo on a slide.\n\nWould a 20-minute call this week or next work for you?\n\nBest,\n[Your Name]\n[Your Title] | [Company]\n[LinkedIn / Website]",
+    "speaking_title": "From Seed to Enterprise: How B2B Startups Win Fortune 500 Accounts",
+    "speaking_topic": "A tactical framework for founders to land enterprise customers — covering procurement cycles, stakeholder mapping, and closing multi-year contracts.",
+    "source_domain": "b2bconnect.wbresearch.com",
+    "scrape_error": ""
+  }
+];
+
+let currentFilter = 'all';
+let currentSort   = 'score';
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function computeStats() {
+  document.getElementById('stat-total').textContent    = EVENTS.length;
+  document.getElementById('stat-high').textContent     = EVENTS.filter(e => e.score >= 8).length;
+  document.getElementById('stat-medium').textContent   = EVENTS.filter(e => e.score >= 5 && e.score < 8).length;
+  document.getElementById('stat-speaking').textContent = EVENTS.filter(e => e.has_speaking).length;
+}
+
+function getFiltered() {
+  return EVENTS.filter(e => {
+    if (currentFilter === 'all')         return true;
+    if (currentFilter === 'high')        return e.score >= 8;
+    if (currentFilter === 'medium')      return e.score >= 5 && e.score < 8;
+    if (currentFilter === 'speaking')    return e.has_speaking;
+    if (currentFilter === 'partnership') return e.has_partnership;
+  });
+}
+
+function getSorted(events) {
+  return [...events].sort((a, b) => {
+    if (currentSort === 'score') return b.score - a.score;
+    if (currentSort === 'date')  return (a.date_raw || 'z').localeCompare(b.date_raw || 'z');
+    if (currentSort === 'name')  return (a.name || '').localeCompare(b.name || '');
+  });
+}
+
+function copyOutreach(uid) {
+  const ev = EVENTS.find(e => e.uid === uid);
+  if (!ev) return;
+  navigator.clipboard.writeText(ev.outreach_message).then(() => {
+    const btn = document.getElementById('copy-' + uid);
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function cardHTML(ev) {
+  const isHigh = ev.score >= 8;
+  const cls    = isHigh ? 'high' : 'medium';
+  const barPct = (ev.score / 10 * 100) + '%';
+  const tags   = [
+    ev.has_speaking    ? '<span class="tag tag-speaking">Speaking</span>'    : '',
+    ev.has_partnership ? '<span class="tag tag-partnership">Partnership</span>' : '',
+  ].join('');
+  const outreachBlock = isHigh ? `
+    <div class="outreach-section">
+      <div class="outreach-header">
+        <span class="outreach-label">Outreach Template</span>
+        <button class="copy-btn" id="copy-${esc(ev.uid)}" onclick="copyOutreach('${esc(ev.uid)}')">Copy</button>
+      </div>
+      <pre class="outreach-text">${esc(ev.outreach_message)}</pre>
+    </div>
+    <div class="speaking-topic">
+      <div class="topic-label">Suggested Speaking Topic</div>
+      <div class="topic-title">${esc(ev.speaking_title)}</div>
+    </div>` : '';
+
+  return `
+  <div class="event-card ${cls}">
+    <div class="card-header">
+      <div class="event-name">${esc(ev.name)}</div>
+      <span class="priority-badge badge-${cls}">${isHigh ? 'High' : 'Medium'}</span>
+    </div>
+    <div class="score-row">
+      <div class="score-number">${ev.score}</div>
+      <div class="score-bar-wrap"><div class="score-bar" style="width:${barPct}"></div></div>
+      <div class="score-denom">/10</div>
+    </div>
+    <div class="meta-grid">
+      <div><div class="meta-label">Type</div><div class="meta-value">${esc(ev.event_type || '—')}</div></div>
+      <div><div class="meta-label">Date</div><div class="meta-value">${esc(ev.date_raw || '—')}</div></div>
+      <div><div class="meta-label">Location</div><div class="meta-value">${esc(ev.location || '—')}</div></div>
+      <div><div class="meta-label">Organizer</div><div class="meta-value">${esc(ev.organizer || '—')}</div></div>
+    </div>
+    ${ev.audience ? `<div class="meta-full"><div class="meta-label">Audience</div><div class="meta-value">${esc(ev.audience.slice(0,160))}</div></div>` : ''}
+    <div class="tags">${tags}</div>
+    <div class="card-links">
+      <a class="card-link" href="${esc(ev.url)}" target="_blank" rel="noopener">Event Page ↗</a>
+      ${ev.contact && ev.contact !== ev.url ? `<a class="card-link" href="${esc(ev.contact)}" target="_blank" rel="noopener">Contact ↗</a>` : ''}
+    </div>
+    ${outreachBlock}
+  </div>`;
+}
+
+function render() {
+  const filtered = getSorted(getFiltered());
+  const high   = filtered.filter(e => e.score >= 8);
+  const medium = filtered.filter(e => e.score >= 5 && e.score < 8);
+  let html = '';
+  if (high.length) {
+    html += `<div class="section-header high">
+      <h2>High Priority</h2><span class="section-count">${high.length}</span></div>
+      <div class="events-grid">${high.map(cardHTML).join('')}</div>`;
+  }
+  if (medium.length) {
+    html += `<div class="section-header medium">
+      <h2>Medium Priority</h2><span class="section-count">${medium.length}</span></div>
+      <div class="events-grid">${medium.map(cardHTML).join('')}</div>`;
+  }
+  if (!high.length && !medium.length) {
+    html = '<div class="empty-state">No events match the current filter.</div>';
+  }
+  document.getElementById('events-container').innerHTML = html;
+}
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentFilter = btn.dataset.filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  });
+});
+
+document.getElementById('sort-select').addEventListener('change', e => {
+  currentSort = e.target.value;
+  render();
+});
+
+computeStats();
+render();
+</script>
+</body>
+</html>
