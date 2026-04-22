@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Finder</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h1>Event Finder</h1>
+      <p>Corporate Speaker Tool</p>
+    </div>
+    <div class="nav-item active" data-page="events" onclick="navigate('events')">
+      <span class="nav-icon">🔍</span> Discover
+    </div>
+    <div class="nav-item" data-page="calendar" onclick="navigate('calendar')">
+      <span class="nav-icon">📅</span> Calendar
+    </div>
+    <div class="nav-item" data-page="admin" onclick="navigate('admin')">
+      <span class="nav-icon">⚙️</span> Admin
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="main-content" id="main-content">
+    <!-- Rendered by JS -->
+  </main>
+</div>
+
+<!-- Day detail modal -->
+<div id="day-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal">
+    <h3 id="day-modal-date"></h3>
+    <div id="day-modal-events" style="max-height:320px;overflow-y:auto"></div>
+    <div class="modal-actions">
+      <button class="action-btn secondary" onclick="document.getElementById('day-modal').style.display='none'">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Block date modal -->
+<div id="block-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal">
+    <h3>Block Dates</h3>
+    <div class="form-grid" style="grid-template-columns:1fr;">
+      <div class="form-field">
+        <label class="form-label">From</label>
+        <input type="date" id="block-start" class="form-input" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">To</label>
+        <input type="date" id="block-end" class="form-input" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">Reason (optional)</label>
+        <input type="text" id="block-reason" class="form-input" placeholder="e.g. Family trip" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="action-btn secondary" onclick="document.getElementById('block-modal').style.display='none'">Cancel</button>
+      <button class="action-btn" onclick="CalendarPage.addBlock()">Block Dates</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/events.js"></script>
+<script src="/static/js/calendar.js"></script>
+<script src="/static/js/admin.js"></script>
+
+<script>
+// ── Utilities ──
+function esc(s) {
+  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+let _toastTimer;
+function showToast(msg) {
+  clearTimeout(_toastTimer);
+  let t = document.getElementById("_toast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "_toast";
+    t.className = "toast";
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.display = "block";
+  _toastTimer = setTimeout(() => { t.style.display = "none"; }, 3000);
+}
+
+// ── Page templates ──
+const PAGES = {
+  events: () => `
+    <div class="page-header">
+      <h2>Discover Events</h2>
+      <p>Find corporate speaking opportunities across India</p>
+    </div>
+    <div class="stats-bar">
+      <div class="stat-card total"><div class="stat-value" id="stat-total">—</div><div class="stat-label">Total</div></div>
+      <div class="stat-card high"><div class="stat-value" id="stat-high">—</div><div class="stat-label">High Priority</div></div>
+      <div class="stat-card speaking"><div class="stat-value" id="stat-speaking">—</div><div class="stat-label">Speaking Opps</div></div>
+      <div class="stat-card applied"><div class="stat-value" id="stat-applied">—</div><div class="stat-label">Applied</div></div>
+    </div>
+    <div class="filter-row">
+      <input type="text" id="filter-city" class="filter-input" placeholder="Filter by city…" />
+      <select id="filter-type" class="filter-select">
+        <option value="">All Types</option>
+        <option value="leadership">Leadership</option>
+        <option value="team_building">Team Building</option>
+        <option value="motivation">Motivation</option>
+        <option value="hr_conference">HR Conference</option>
+        <option value="webinar">Webinar</option>
+        <option value="corporate_offsite">Corporate Offsite</option>
+      </select>
+      <select id="filter-status" class="filter-select">
+        <option value="">All Status</option>
+        <option value="new">New</option>
+        <option value="interested">Interested</option>
+        <option value="applied">Applied</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="rejected">Rejected</option>
+      </select>
+      <select id="sort-select" class="filter-select">
+        <option value="score">Sort: Score</option>
+        <option value="date">Sort: Date</option>
+        <option value="name">Sort: Name</option>
+      </select>
+      <label style="font-size:0.8rem;color:#94a3b8;display:flex;align-items:center;gap:5px">
+        <input type="range" id="filter-score" min="0" max="9" value="0" style="width:80px" />
+        Score ≥ <span id="score-val">0</span>
+      </label>
+    </div>
+    <div class="filter-row">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="high">High Priority</button>
+      <button class="filter-btn" data-filter="speaking">Speaking</button>
+      <button class="filter-btn" data-filter="shortlisted">Shortlisted</button>
+      <label style="font-size:0.8rem;color:#94a3b8;display:flex;align-items:center;gap:5px">
+        <input type="checkbox" id="filter-speaking" /> Speaking Only
+      </label>
+    </div>
+    <div class="events-grid" id="events-grid">
+      <div class="empty-state">Loading events…</div>
+    </div>`,
+
+  calendar: () => `
+    <div class="page-header">
+      <h2>Calendar</h2>
+      <p>Manage your availability and see event conflicts</p>
+    </div>
+    <div class="calendar-controls">
+      <button class="cal-nav" onclick="CalendarPage.prevMonth()">◀</button>
+      <div class="cal-month" id="cal-month-label">—</div>
+      <button class="cal-nav" onclick="CalendarPage.nextMonth()">▶</button>
+      <button class="action-btn" style="margin-left:auto" onclick="document.getElementById('block-modal').style.display='flex'">+ Block Dates</button>
+    </div>
+    <div class="calendar-grid" id="cal-grid"></div>
+    <div class="blocked-list" style="margin-top:28px">
+      <h3 style="font-size:0.78rem;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:12px">Blocked Dates This Month</h3>
+      <div id="blocked-list"></div>
+    </div>
+    <div style="margin-top:16px;font-size:0.75rem;color:#64748b;display:flex;gap:16px">
+      <span><span style="color:#34d399">●</span> Event</span>
+      <span><span style="color:#60a5fa">●</span> Speaking Opp</span>
+      <span><span style="color:#f472b6">●</span> Conflict with blocked date</span>
+    </div>`,
+
+  admin: () => `
+    <div class="page-header">
+      <h2>Admin</h2>
+      <p>Run discovery, add events manually, view run history</p>
+    </div>
+    <div class="stats-bar">
+      <div class="stat-card total"><div class="stat-value" id="stat-total">—</div><div class="stat-label">Total Events</div></div>
+      <div class="stat-card high"><div class="stat-value" id="stat-high">—</div><div class="stat-label">High Priority</div></div>
+      <div class="stat-card speaking"><div class="stat-value" id="stat-speaking">—</div><div class="stat-label">Speaking Opps</div></div>
+      <div class="stat-card applied"><div class="stat-value" id="stat-applied">—</div><div class="stat-label">Applied</div></div>
+    </div>
+    <div class="admin-section">
+      <h3>Discovery</h3>
+      <button id="btn-run"     class="action-btn" data-label="Run Full Discovery"  onclick="AdminPage.runDiscovery()">Run Full Discovery</button>
+      <button id="btn-ai"      class="action-btn" data-label="Run AI Discovery"    onclick="AdminPage.runAI()">Run AI Discovery</button>
+      <button id="btn-rescore" class="action-btn secondary" data-label="Re-score All" onclick="AdminPage.rescore()">Re-score All</button>
+    </div>
+    <div class="admin-section">
+      <h3>Run History</h3>
+      <table class="runs-table">
+        <thead><tr><th>#</th><th>Type</th><th>Started</th><th>Duration</th><th>Results</th><th>Status</th></tr></thead>
+        <tbody id="runs-tbody"><tr><td colspan="6" style="text-align:center;color:#64748b;padding:20px">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="admin-section">
+      <h3>Add Event Manually</h3>
+      <form id="manual-form">
+        <div class="form-grid">
+          <div class="form-field full">
+            <label class="form-label">Event Name *</label>
+            <input name="name" class="form-input" required placeholder="e.g. India Leadership Summit 2026" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Event Type</label>
+            <select name="event_type" class="form-select-field">
+              <option value="">Select type</option>
+              <option value="leadership_summit">Leadership Summit</option>
+              <option value="team_building">Team Building</option>
+              <option value="motivation_workshop">Motivation Workshop</option>
+              <option value="hr_conference">HR Conference</option>
+              <option value="corporate_offsite">Corporate Offsite</option>
+              <option value="webinar">Webinar</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Date (Start)</label>
+            <input name="date_start" type="date" class="form-input" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Date (text)</label>
+            <input name="date_raw" class="form-input" placeholder="e.g. 15 June 2026" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">City</label>
+            <input name="location_city" class="form-input" placeholder="e.g. Mumbai" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Organiser</label>
+            <input name="organizer" class="form-input" placeholder="e.g. CII" />
+          </div>
+          <div class="form-field full">
+            <label class="form-label">Event URL</label>
+            <input name="url" type="url" class="form-input" placeholder="https://…" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Contact Email</label>
+            <input name="contact_email" type="email" class="form-input" />
+          </div>
+          <div class="form-field" style="align-self:end">
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;color:#94a3b8;cursor:pointer">
+              <input name="is_virtual" type="checkbox" /> Virtual / Online event
+            </label>
+          </div>
+          <div class="form-field full">
+            <label class="form-label">Description</label>
+            <textarea name="description" class="form-textarea" placeholder="Brief event description…"></textarea>
+          </div>
+          <div class="form-field full">
+            <label class="form-label">Notes</label>
+            <textarea name="notes" class="form-textarea" placeholder="Private notes…"></textarea>
+          </div>
+          <div class="form-field full">
+            <button type="submit" class="action-btn">Add Event</button>
+          </div>
+        </div>
+      </form>
+    </div>`,
+};
+
+// ── Navigation ──
+let currentPage = "events";
+
+function navigate(page) {
+  currentPage = page;
+  document.querySelectorAll(".nav-item").forEach(n => {
+    n.classList.toggle("active", n.dataset.page === page);
+  });
+  document.getElementById("main-content").innerHTML = PAGES[page]();
+  if (page === "events")   EventsPage.init();
+  if (page === "calendar") CalendarPage.init();
+  if (page === "admin")    AdminPage.init();
+}
+
+// Bootstrap
+navigate("events");
+</script>
+</body>
+</html>
