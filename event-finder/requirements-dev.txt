@@ -1,0 +1,5 @@
+-r requirements.txt
+responses==0.25.3
+pytest==8.3.3
+playwright==1.47.0
+alembic==1.13.3
