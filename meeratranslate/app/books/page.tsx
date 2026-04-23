@@ -13,10 +13,15 @@ export default function BooksPage() {
   const [form, setForm] = useState({ title: "", description: "", author: "" });
 
   async function fetchBooks() {
-    const res = await fetch("/api/books");
-    const data = await res.json();
-    setBooks(data);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/books");
+      const data = await res.json();
+      setBooks(Array.isArray(data) ? data : []);
+    } catch {
+      setBooks([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { fetchBooks(); }, []);
