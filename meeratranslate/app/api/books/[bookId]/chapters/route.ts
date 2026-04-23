@@ -1,52 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
-import Chapter from "@/models/Chapter";
+import { getDb, newId, mapChapter } from "@/lib/db";
 import { countWords } from "@/utils/chunker";
 
-// GET /api/books/:bookId/chapters
-export async function GET(_: NextRequest, { params }: { params: { bookId: string } }) {
+type Ctx = { params: { bookId: string } };
+
+export async function GET(_: NextRequest, { params }: Ctx) {
   try {
-    await connectDB();
-    const chapters = await Chapter.find({ bookId: params.bookId })
-      .sort({ orderIndex: 1 })
-      .lean();
-    return NextResponse.json(
-      chapters.map((c) => ({ ...c, _id: c._id.toString(), bookId: c.bookId.toString() }))
-    );
-  } catch {
-    return NextResponse.json({ error: "Failed to fetch chapters" }, { status: 500 });
+    const db = getDb();
+    const rows = db
+      .prepare("SELECT * FROM chapters WHERE book_id = ? ORDER BY order_index ASC")
+      .all(params.bookId);
+    return NextResponse.json(rows.map(mapChapter));
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-// POST /api/books/:bookId/chapters
-export async function POST(req: NextRequest, { params }: { params: { bookId: string } }) {
+export async function POST(req: NextRequest, { params }: Ctx) {
   try {
-    await connectDB();
-    const body = await req.json();
-    const { title, hindiText = "", tone = "thriller" } = body;
-
+    const { title, hindiText = "", tone = "thriller" } = await req.json();
     if (!title?.trim()) {
       return NextResponse.json({ error: "Chapter title is required" }, { status: 400 });
     }
-
-    // Auto-assign orderIndex as next in sequence
-    const lastChapter = await Chapter.findOne({ bookId: params.bookId }).sort({ orderIndex: -1 });
-    const orderIndex = lastChapter ? lastChapter.orderIndex + 1 : 0;
-
-    const chapter = await Chapter.create({
-      bookId: params.bookId,
-      title: title.trim(),
-      hindiText,
-      tone,
-      orderIndex,
-      wordCount: countWords(hindiText),
-    });
-
-    return NextResponse.json(
-      { ...chapter.toObject(), _id: chapter._id.toString(), bookId: params.bookId },
-      { status: 201 }
-    );
-  } catch {
-    return NextResponse.json({ error: "Failed to create chapter" }, { status: 500 });
+    const db = getDb();
+    const last = db
+      .prepare("SELECT order_index FROM chapters WHERE book_id = ? ORDER BY order_index DESC LIMIT 1")
+      .get(params.bookId) as any;
+    const orderIndex = last ? last.order_index + 1 : 0;
+    const id = newId();
+    db.prepare(
+      `INSERT INTO chapters (id, book_id, title, hindi_text, tone, order_index, word_count)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, params.bookId, title.trim(), hindiText, tone, orderIndex, countWords(hindiText));
+    const row = db.prepare("SELECT * FROM chapters WHERE id = ?").get(id);
+    return NextResponse.json(mapChapter(row), { status: 201 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

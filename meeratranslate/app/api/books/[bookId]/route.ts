@@ -1,41 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
-import Book from "@/models/Book";
-import Chapter from "@/models/Chapter";
+import { getDb, mapBook } from "@/lib/db";
 
-// GET /api/books/:id
-export async function GET(_: NextRequest, { params }: { params: { bookId: string } }) {
+type Ctx = { params: { bookId: string } };
+
+export async function GET(_: NextRequest, { params }: Ctx) {
   try {
-    await connectDB();
-    const book = await Book.findById(params.bookId).lean();
-    if (!book) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json({ ...book, _id: book._id.toString() });
-  } catch {
-    return NextResponse.json({ error: "Failed to fetch book" }, { status: 500 });
+    const db = getDb();
+    const row = db.prepare("SELECT * FROM books WHERE id = ?").get(params.bookId);
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(mapBook(row));
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-// PUT /api/books/:id
-export async function PUT(req: NextRequest, { params }: { params: { bookId: string } }) {
+export async function PUT(req: NextRequest, { params }: Ctx) {
   try {
-    await connectDB();
-    const body = await req.json();
-    const book = await Book.findByIdAndUpdate(params.bookId, body, { new: true }).lean();
-    if (!book) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json({ ...book, _id: book._id.toString() });
-  } catch {
-    return NextResponse.json({ error: "Failed to update book" }, { status: 500 });
+    const { title, description, author } = await req.json();
+    const db = getDb();
+    db.prepare(
+      `UPDATE books SET
+        title       = COALESCE(?, title),
+        description = COALESCE(?, description),
+        author      = COALESCE(?, author),
+        updated_at  = datetime('now')
+       WHERE id = ?`
+    ).run(title ?? null, description ?? null, author ?? null, params.bookId);
+    const row = db.prepare("SELECT * FROM books WHERE id = ?").get(params.bookId);
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(mapBook(row));
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-// DELETE /api/books/:id — also deletes all chapters
-export async function DELETE(_: NextRequest, { params }: { params: { bookId: string } }) {
+export async function DELETE(_: NextRequest, { params }: Ctx) {
   try {
-    await connectDB();
-    await Book.findByIdAndDelete(params.bookId);
-    await Chapter.deleteMany({ bookId: params.bookId });
+    const db = getDb();
+    db.prepare("DELETE FROM books WHERE id = ?").run(params.bookId);
     return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json({ error: "Failed to delete book" }, { status: 500 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

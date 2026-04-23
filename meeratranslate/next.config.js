@@ -1,10 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["mongoose"],
+    serverComponentsExternalPackages: ["better-sqlite3"],
   },
-  // Skip type-checking and linting during production build
-  // (run these locally with `npm run lint` and `tsc --noEmit`)
   typescript: {
     ignoreBuildErrors: true,
   },

@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
-import Chapter from "@/models/Chapter";
-import Book from "@/models/Book";
+import { getDb } from "@/lib/db";
 
-// GET /api/export?bookId=xxx&chapterId=yyy&format=docx|txt|pdf
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -15,25 +12,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "bookId is required" }, { status: 400 });
     }
 
-    await connectDB();
-
-    const book = await Book.findById(bookId).lean();
+    const db = getDb();
+    const book = db.prepare("SELECT * FROM books WHERE id = ?").get(bookId) as any;
     if (!book) return NextResponse.json({ error: "Book not found" }, { status: 404 });
 
-    // Fetch chapters (single or all)
-    const chapters = chapterId
-      ? await Chapter.find({ _id: chapterId, bookId }).sort({ orderIndex: 1 }).lean()
-      : await Chapter.find({ bookId }).sort({ orderIndex: 1 }).lean();
+    const chapters: any[] = chapterId
+      ? db
+          .prepare("SELECT * FROM chapters WHERE id = ? AND book_id = ? ORDER BY order_index ASC")
+          .all(chapterId, bookId)
+      : db
+          .prepare("SELECT * FROM chapters WHERE book_id = ? ORDER BY order_index ASC")
+          .all(bookId);
 
     if (!chapters.length) {
       return NextResponse.json({ error: "No chapters found" }, { status: 404 });
     }
 
-    const bookTitle = (book as any).title as string;
-
-    // Build plain text content
+    const bookTitle = book.title as string;
     const textContent = chapters
-      .map((ch) => `=== ${ch.title} ===\n\n${ch.englishText || "[Not yet translated]"}`)
+      .map((ch) => `=== ${ch.title} ===\n\n${ch.english_text || "[Not yet translated]"}`)
       .join("\n\n\n");
 
     if (format === "txt") {
@@ -46,25 +43,17 @@ export async function GET(req: NextRequest) {
     }
 
     if (format === "docx") {
-      // Dynamically import to keep bundle size small
       const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
-
       const docChildren: any[] = [
-        new Paragraph({
-          text: bookTitle,
-          heading: HeadingLevel.TITLE,
-        }),
+        new Paragraph({ text: bookTitle, heading: HeadingLevel.TITLE }),
         new Paragraph({ text: "" }),
       ];
-
       for (const ch of chapters) {
         docChildren.push(
           new Paragraph({ text: ch.title, heading: HeadingLevel.HEADING_1 }),
           new Paragraph({ text: "" })
         );
-
-        const lines = (ch.englishText || "[Not yet translated]").split("\n");
-        for (const line of lines) {
+        for (const line of (ch.english_text || "[Not yet translated]").split("\n")) {
           docChildren.push(
             new Paragraph({
               children: [new TextRun({ text: line, size: 24 })],
@@ -74,10 +63,7 @@ export async function GET(req: NextRequest) {
         }
         docChildren.push(new Paragraph({ text: "" }));
       }
-
-      const doc = new Document({ sections: [{ children: docChildren }] });
-      const buffer = await Packer.toBuffer(doc);
-
+      const buffer = await Packer.toBuffer(new Document({ sections: [{ children: docChildren }] }));
       return new NextResponse(buffer, {
         headers: {
           "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -87,8 +73,6 @@ export async function GET(req: NextRequest) {
     }
 
     if (format === "pdf") {
-      // We return plain text for PDF — the client uses jsPDF to render
-      // This avoids server-side canvas dependencies
       return NextResponse.json({ content: textContent, title: bookTitle });
     }
 
