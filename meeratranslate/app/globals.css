@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 6%;
+    --foreground: 220 15% 90%;
+    --card: 220 18% 9%;
+    --card-foreground: 220 15% 88%;
+    --primary: 280 60% 65%;
+    --primary-foreground: 220 20% 6%;
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 220 10% 75%;
+    --muted: 220 15% 13%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 280 40% 20%;
+    --accent-foreground: 280 60% 80%;
+    --destructive: 0 60% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 15% 18%;
+    --input: 220 15% 15%;
+    --ring: 280 60% 65%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground; }
+
+/* Writing textarea */
+.writing-area {
+  @apply font-serif text-base leading-8 resize-none;
+  line-height: 2;
+}
+
+/* Tone badge colors */
+.tone-eerie    { @apply bg-emerald-900/40 text-emerald-300 border-emerald-700/50; }
+.tone-haunting { @apply bg-violet-900/40 text-violet-300 border-violet-700/50; }
+.tone-thriller { @apply bg-red-900/40 text-red-300 border-red-700/50; }
+.tone-suspense { @apply bg-amber-900/40 text-amber-300 border-amber-700/50; }
