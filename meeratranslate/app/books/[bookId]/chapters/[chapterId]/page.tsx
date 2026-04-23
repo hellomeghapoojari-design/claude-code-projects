@@ -30,7 +30,20 @@ export default function ChapterEditorPage() {
   const [translateState, setTranslateState] = useState<TranslateState>("idle");
   const [progress, setProgress]     = useState({ current: 0, total: 0 });
   const [errorMsg, setErrorMsg]     = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
   const autoSaveTimer               = useRef<NodeJS.Timeout | null>(null);
+  const exportRef                   = useRef<HTMLDivElement>(null);
+
+  // Close export dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   // Fetch chapter on mount
   useEffect(() => {
@@ -200,18 +213,26 @@ export default function ChapterEditorPage() {
         </label>
 
         {/* Export dropdown */}
-        <div className="relative group">
-          <button className="flex items-center gap-1.5 text-xs bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg hover:opacity-80 transition-opacity">
+        <div className="relative" ref={exportRef}>
+          <button
+            onClick={() => setExportOpen((o) => !o)}
+            className="flex items-center gap-1.5 text-xs bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg hover:opacity-80 transition-opacity"
+          >
             <Download className="h-3.5 w-3.5" /> Export
           </button>
-          <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg overflow-hidden shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-20 min-w-[120px]">
-            {(["txt", "docx", "pdf"] as const).map((fmt) => (
-              <button key={fmt} onClick={() => exportChapter(fmt)}
-                className="block w-full text-left px-4 py-2 text-xs hover:bg-accent hover:text-accent-foreground transition-colors uppercase tracking-wide">
-                .{fmt}
-              </button>
-            ))}
-          </div>
+          {exportOpen && (
+            <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg overflow-hidden shadow-lg z-50 min-w-[120px]">
+              {(["txt", "docx", "pdf"] as const).map((fmt) => (
+                <button
+                  key={fmt}
+                  onClick={() => { exportChapter(fmt); setExportOpen(false); }}
+                  className="block w-full text-left px-4 py-2 text-xs hover:bg-accent hover:text-accent-foreground transition-colors uppercase tracking-wide"
+                >
+                  .{fmt}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
