@@ -28,7 +28,8 @@
       "Bash(mdfind -name \"npx\")",
       "Bash(zsh -c 'which npx node 2>/dev/null; echo \"PATH=$PATH\"')",
       "Bash(zsh *)",
-      "Bash(git reset *)"
+      "Bash(git reset *)",
+      "WebFetch(domain:status.railway.com)"
     ]
   }
 }
