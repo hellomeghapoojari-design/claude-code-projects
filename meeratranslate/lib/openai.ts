@@ -1,9 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
 const TONE_INSTRUCTIONS: Record<string, string> = {
   eerie:
     "The tone should feel eerie and unsettling — quiet dread, strange imagery, a sense that something is deeply wrong beneath the surface.",
@@ -22,15 +16,17 @@ export async function translateChunk(
   totalChunks: number,
   previousContext?: string
 ): Promise<string> {
-  const toneInstruction = TONE_INSTRUCTIONS[tone] || TONE_INSTRUCTIONS["thriller"];
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY is not set in Railway Variables.");
 
+  const toneInstruction = TONE_INSTRUCTIONS[tone] || TONE_INSTRUCTIONS["thriller"];
   const contextNote =
     chunkIndex > 0 && previousContext
       ? `For context, here is the end of the previous section (do not re-translate this, just use it for flow):\n"${previousContext}"\n\n`
       : "";
 
   const systemPrompt = `You are a professional literary translator specializing in psychological thriller novels.
-Your task is to translate Hindi text into clear, natural, human-like English that reads like it was originally written in English.
+Translate Hindi text into clear, natural, human-like English that reads like it was originally written in English.
 
 Rules:
 - Never translate literally word-for-word
@@ -44,13 +40,24 @@ Rules:
 
 ${hindiText}`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 4000,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userPrompt }],
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 4000,
+    }),
   });
 
-  const block = response.content[0];
-  return block.type === "text" ? block.text.trim() : "";
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || "Translation failed");
+  return data.choices[0]?.message?.content?.trim() ?? "";
 }

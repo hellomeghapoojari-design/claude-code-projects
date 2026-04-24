@@ -7,9 +7,9 @@ import { Tone } from "@/types";
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.GROQ_API_KEY) {
     return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY is not set. Add it in your Railway Variables tab." },
+      { error: "GROQ_API_KEY is not set. Add it in your Railway Variables tab." },
       { status: 503 }
     );
   }
