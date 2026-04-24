@@ -1,10 +1,9 @@
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// Tone-specific instructions injected into every prompt
 const TONE_INSTRUCTIONS: Record<string, string> = {
   eerie:
     "The tone should feel eerie and unsettling — quiet dread, strange imagery, a sense that something is deeply wrong beneath the surface.",
@@ -16,19 +15,14 @@ const TONE_INSTRUCTIONS: Record<string, string> = {
     "The tone should build suspense — slow reveal, careful detail, every sentence should make the reader feel something is about to go terribly wrong.",
 };
 
-/**
- * Translates a single chunk of Hindi text to English using GPT.
- * Called sequentially for each chunk of a large document.
- */
 export async function translateChunk(
   hindiText: string,
   tone: string,
   chunkIndex: number,
   totalChunks: number,
-  previousContext?: string // last ~200 words of the previous chunk for continuity
+  previousContext?: string
 ): Promise<string> {
-  const toneInstruction =
-    TONE_INSTRUCTIONS[tone] || TONE_INSTRUCTIONS["thriller"];
+  const toneInstruction = TONE_INSTRUCTIONS[tone] || TONE_INSTRUCTIONS["thriller"];
 
   const contextNote =
     chunkIndex > 0 && previousContext
@@ -50,15 +44,13 @@ Rules:
 
 ${hindiText}`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    temperature: 0.7, // slightly creative for literary quality
+  const response = await anthropic.messages.create({
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 4000,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
   });
 
-  return response.choices[0].message.content?.trim() ?? "";
+  const block = response.content[0];
+  return block.type === "text" ? block.text.trim() : "";
 }
